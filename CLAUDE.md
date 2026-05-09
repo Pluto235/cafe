@@ -9,32 +9,37 @@
 
 ## 技术栈
 
-- 前端：Vite 5 + React 18 + react-router（单端口、无 SSR）
-- 后端：Express + better-sqlite3（同一进程同时挂 `/api/*` 与 `dist/` 静态产物）
-- 部署：Fly.io（HKG region），SQLite 文件挂在 `/data` 持久卷
+- 前端：Vite 5 + React 18 + react-router（SPA，无 SSR）
+- 后端：Hono（Cloudflare Workers），替代原来的 Express
+- 数据库：Cloudflare D1（托管 SQLite），替代原来的 better-sqlite3
+- 部署：Cloudflare Workers + D1，静态资源通过 ASSETS 绑定 serve
+- 备用本地后端：`server/`（Express + better-sqlite3，仅本地调试用，不部署）
 
 ## 关键路径
 
 - `src/pages/Home.jsx` — 主页（Hero、Menu、Tonight Sky、OrderForm、WishWall）
 - `src/pages/Admin.jsx` — 店员后台（Basic Auth，用户 `staff`，密码 = `ADMIN_PASSWORD`）
-- `src/data/menu.js` — 奶昔 + 咖啡定义（每日营业前可改 → `fly deploy`）
-- `src/data/tonight.js` — 今夜星空文案（默认是兜底版，不绑日期）
-- `server/index.js` — Express 入口，`trust proxy` 已开
-- `server/db.js` — SQLite 初始化 + seed 心愿；`DB_PATH` 环境变量可覆盖路径
-- `server/routes/orders.js` — 下单 + admin 列单 + 状态切换
-- `server/routes/wishes.js` — 心愿墙读写
-- `server/rateLimit.js` — 内存 IP 滑动窗口限流（orders 3/min、wishes 10/min）
-- `Dockerfile` / `fly.toml` / `.dockerignore` — Fly.io 部署配置
+- `src/data/menu.js` — 奶昔 + 咖啡定义（改完后 `npm run deploy` 重新部署）
+- `src/data/tonight.js` — 今夜星空文案（默认兜底版，不绑日期）
+- `worker/index.js` — Hono Worker 入口，挂 API + 静态资源 fallthrough
+- `worker/auth.js` — Admin Basic Auth 中间件
+- `worker/routes/orders.js` — 下单 + admin 列单 + 状态切换（D1）
+- `worker/routes/wishes.js` — 心愿墙读写（D1）
+- `migrations/0001_schema.sql` — D1 建表 + seed 心愿数据
+- `wrangler.toml` — Cloudflare Workers 部署配置
 
 ## 常用命令
 
 ```bash
-# 本地开发（两个终端）
+# 本地开发（两个终端，需要先建好 D1 本地实例）
 npm install
-ADMIN_PASSWORD=dev npm run dev:api    # API 在 8787
-npm run dev:web                       # 前端在 5173，自动代理 /api
+npm run dev:api   # wrangler dev，Worker + D1 本地模拟，在 8787
+npm run dev:web   # vite，前端在 5173，自动代理 /api 到 8787
 
-# 本地完整模式（构建 + 单端口）
+# 部署到 Cloudflare（一条命令）
+npm run deploy    # = vite build + wrangler deploy
+
+# 纯本地 Express 模式（不依赖 Cloudflare，仅调试用）
 npm run build
 ADMIN_PASSWORD=dev PORT=8787 npm start
 

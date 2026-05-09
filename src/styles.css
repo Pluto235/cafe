@@ -64,6 +64,7 @@ a { color: inherit; }
 .ehc-nav-links { display: flex; gap: 32px; }
 .ehc-nav-links a {
   text-decoration: none;
+  font-size: 13px;
   transition: color .25s;
 }
 .ehc-nav-links a:hover { color: #d99757; }

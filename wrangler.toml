@@ -1,0 +1,24 @@
+# Cloudflare Workers 部署配置
+# 首次部署步骤见 README.md "上 Cloudflare Workers" 小节
+#
+# 注意：database_id 需要你创建 D1 实例后填入：
+#   npx wrangler d1 create ehc-db
+# 把输出的 database_id 粘贴到下面
+
+name = "event-horizon-cafe"
+main = "worker/index.js"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+binding   = "ASSETS"
+
+[[d1_databases]]
+binding       = "DB"
+database_name = "ehc-db"
+database_id   = "FILL_AFTER_WRANGLER_D1_CREATE"
+
+[vars]
+# 非敏感公开变量可在此设置
+# ADMIN_PASSWORD 请用：npx wrangler secret set ADMIN_PASSWORD

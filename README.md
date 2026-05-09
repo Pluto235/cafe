@@ -2,81 +2,72 @@
 
 一家由天文系几位学生开起来的小奶昔/咖啡铺。本仓库是它的下单网站。
 
-## 快速启动
+## 上 Cloudflare Workers（公网部署）
+
+需要 [Node.js](https://nodejs.org) + [Cloudflare 账号](https://dash.cloudflare.com/sign-up)（免费，无需信用卡）。
 
 ```bash
-# 1. 装依赖
+# 1) 装依赖
 npm install
 
-# 2. 配置环境变量
-cp .env.example .env
-# 编辑 .env，把 ADMIN_PASSWORD 改成你自己的店员后台密码
+# 2) 登录 Cloudflare
+npx wrangler login
 
-# 3. 构建前端
-npm run build
+# 3) 创建 D1 数据库，把输出的 database_id 填入 wrangler.toml
+npx wrangler d1 create ehc-db
+# → 复制 database_id，粘贴到 wrangler.toml [[d1_databases]] 的 database_id 字段
 
-# 4. 启动服务（默认 8787）
-ADMIN_PASSWORD=$(grep ADMIN_PASSWORD .env | cut -d= -f2) PORT=8787 npm start
+# 4) 初始化数据库（建表 + seed 心愿数据）
+npx wrangler d1 migrations apply ehc-db
+
+# 5) 设置 Admin 密码（只存在 Cloudflare 云端，不进代码）
+npx wrangler secret set ADMIN_PASSWORD
+
+# 6) 一键构建 + 部署
+npm run deploy
 ```
 
-打开 `http://<server-ip>:8787/` 就能看到主页。`http://<server-ip>:8787/admin` 是店员后台（用户名 `staff`，密码 = `ADMIN_PASSWORD`）。
+部署成功后，终端会输出：
+```
+https://event-horizon-cafe.<你的账号>.workers.dev
+```
 
-## 开发模式
+- 主页：`https://event-horizon-cafe.xxx.workers.dev/`
+- 店员后台：`.../admin`（用户 `staff`，密码 = 上面设的 `ADMIN_PASSWORD`）
+- 健康检查：`curl .../api/health`
+
+**收款码**：把微信/支付宝静态收款码放到 `public/pay-qr.png`，再跑 `npm run deploy` 就自动上线。
+
+**每日更新菜单/星空**：编辑 `src/data/menu.js` 或 `src/data/tonight.js` → `git commit` → `npm run deploy`。
+
+**查订单**：店员后台 `/admin`，或 Cloudflare 控制台 → Workers & Pages → Storage → D1 → ehc-db。
+
+**应急关站**：Cloudflare 控制台 → Workers & Pages → event-horizon-cafe → 右上角「停用」。
+
+## 本地开发
 
 ```bash
-# 终端 A：跑 API（8787）
-ADMIN_PASSWORD=dev npm run dev:api
+# 先初始化本地 D1 模拟（只用跑一次）
+npx wrangler d1 migrations apply ehc-db --local
 
-# 终端 B：跑前端 dev server（5173，自动代理 /api 到 8787）
+# 终端 A：Worker + D1 本地模拟（8787）
+npm run dev:api        # = wrangler dev
+
+# 终端 B：Vite 前端（5173，自动代理 /api 到 8787）
 npm run dev:web
 ```
 
-然后访问 `http://localhost:5173`。
+访问 `http://localhost:5173`。Admin 密码在 `wrangler dev` 启动时会提示，也可以在 `wrangler.toml` 的 `[vars]` 临时加 `ADMIN_PASSWORD = "dev"`（本地专用，不提交）。
 
 ## 维护
 
-- **每日今夜星空**：编辑 `src/data/tonight.js` 后重新 `npm run build`。
 - **菜单调整**：编辑 `src/data/menu.js`（`shakes` 和 `coffees` 两个数组）。
-- **数据库**：SQLite 文件在 `server/data/ehc.db`。备份直接拷文件即可。
-- **查订单**：店员后台 `/admin`，或 `sqlite3 server/data/ehc.db "SELECT * FROM orders;"`
-
-## 上 Fly.io（推荐的公网部署方式）
-
-需要 [flyctl](https://fly.io/docs/flyctl/install/) + Fly.io 账号（GitHub 登录最快，新账号会要求绑信用卡作信用校验）。
-
-```bash
-# 1) 把仓库根目录的 fly.toml 中的 app = "event-horizon-cafe" 换成自己的（重名会冲突）
-# 2) 创建 app（用我们写好的 fly.toml，不要让它覆盖）
-fly launch --no-deploy --copy-config
-
-# 3) 创建 1GB 持久卷给 SQLite
-fly volumes create ehc_data --size 1 --region hkg
-
-# 4) 配 admin 密码（不要写进 fly.toml）
-fly secrets set ADMIN_PASSWORD='你设的密码'
-
-# 5) 部署
-fly deploy
-
-# 6) 拿 URL
-fly status     # 看到 https://<app-name>.fly.dev
-```
-
-部署成功后：
-- 主页：`https://<app-name>.fly.dev/`
-- 店员后台：`https://<app-name>.fly.dev/admin`（用户 `staff`）
-- 健康检查：`curl https://<app-name>.fly.dev/api/health`
-
-**收款码**：吧台用的微信/支付宝静态收款码 PNG 放到 `public/pay-qr.png`，下单成功页会自动展示。
-
-**每日更新菜单/星空**：编辑 `src/data/menu.js` 或 `src/data/tonight.js` → `git commit` → `fly deploy`（约 90 秒）。
-
-**数据备份**：`fly ssh sftp shell`，`get /data/ehc.db ./backup-YYYYMMDD.db`。
-
-**应急关站 / 复活**：`fly scale count 0` / `fly scale count 1`。
+- **每日今夜星空**：编辑 `src/data/tonight.js`（默认兜底文案，不绑日期）。
+- **数据库结构变更**：在 `migrations/` 新建 `0002_xxx.sql`，然后 `npx wrangler d1 migrations apply ehc-db`。
 
 ## 技术栈
 
-- 前端：Vite 5 + React 18 + react-router
-- 后端：Express + better-sqlite3
-- 单端口部署：Express 既挂 `/api/*` 也 serve 静态产物 `dist/`
+- 前端：Vite 5 + React 18 + react-router（SPA）
+- 后端：Hono（Cloudflare Workers）+ Cloudflare D1（托管 SQLite）
+- 静态资源：Cloudflare Workers Assets（ASSETS 绑定）
+- 备用本地后端：`server/`（Express + better-sqlite3，仅本地调试）
