@@ -183,7 +183,15 @@ export default function OrderForm({ cart, setCart }) {
                     src="/pay-qr.png"
                     alt="收款码"
                     className="ehc-pay-qr"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (img.dataset.fallback) {
+                        img.style.display = 'none';
+                      } else {
+                        img.dataset.fallback = '1';
+                        img.src = '/pay-qr.placeholder.svg';
+                      }
+                    }}
                   />
                   <div style={{ color: p.dim, fontSize: 13, marginTop: 8 }}>
                     扫上方收款码支付，到吧台凭订单号取餐。
