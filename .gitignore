@@ -1,0 +1,18 @@
+node_modules/
+dist/
+server/data/*.db
+server/data/*.db-journal
+server/data/*.db-shm
+server/data/*.db-wal
+.env
+.env.local
+.DS_Store
+*.log
+
+# 私人收款码：不进库（每个店主自己放本地 + 部署时上传）
+public/pay-qr.png
+
+# 本地工具 / IDE
+.claude/
+.vscode/
+.idea/

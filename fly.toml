@@ -1,0 +1,27 @@
+# Fly.io 部署配置。app 名重名时，把 app = 这一行换成自己的（如 ehc-astro）。
+# 部署：fly deploy
+# 改 ADMIN_PASSWORD：fly secrets set ADMIN_PASSWORD='新密码'
+
+app = "event-horizon-cafe"
+primary_region = "hkg"
+
+[build]
+
+[env]
+  DB_PATH = "/data/ehc.db"
+  PORT    = "8787"
+
+[http_service]
+  internal_port       = 8787
+  force_https         = true
+  auto_stop_machines  = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source      = "ehc_data"
+  destination = "/data"
+
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "256mb"

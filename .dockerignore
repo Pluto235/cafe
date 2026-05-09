@@ -1,0 +1,13 @@
+node_modules
+dist
+server/data
+.env
+.env.*
+.git
+.gitignore
+.DS_Store
+*.log
+*.zip
+uidesign
+.claude
+README.md
